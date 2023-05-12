@@ -28,20 +28,16 @@ PY3K = sys.version_info >= (3, 0)
 # check command syntax, data range etc.
 # return a valid scanmem command
 # raise if something is invalid
-def check_scan_command (data_type, cmd, is_first_scan):
+def check_scan_command(data_type, cmd, is_first_scan):
     if cmd == '':
         raise ValueError(_('No value provided'))
     if data_type == 'string':
-        return '" ' + cmd
+        return f'" {cmd}'
 
     cmd = cmd.strip()
     # hack for snapshot/update (TODO: make it possible with string)
     if cmd == '?':
-        if is_first_scan:
-            return 'snapshot'
-        else:
-            return 'update'
-
+        return 'snapshot' if is_first_scan else 'update'
     if data_type == 'bytearray':
         bytes = cmd.split(' ')
         for byte in bytes:
@@ -55,7 +51,6 @@ def check_scan_command (data_type, cmd, is_first_scan):
                _tmp = int(byte,16)
             except:
                 raise ValueError(_('Bad value: %s') % (byte, ))
-        return cmd
     else: # for numbers
         is_operator_cmd = cmd in {'=', '!=', '>', '<', '+', '-'}
         if not is_first_scan and is_operator_cmd:
@@ -70,7 +65,7 @@ def check_scan_command (data_type, cmd, is_first_scan):
             # range detected
             num_1 = eval_operand(range_nums[0])
             num_2 = eval_operand(range_nums[1])
-            cmd = str(num_1) + ".." + str(num_2)
+            cmd = f"{str(num_1)}..{str(num_2)}"
             check_int(data_type, num_1)
             check_int(data_type, num_2)
         else:
@@ -88,15 +83,15 @@ def check_scan_command (data_type, cmd, is_first_scan):
             cmd += str(num)
             check_int(data_type, num)
 
-        # finally
-        return cmd
+
+    return cmd
 
 # evaluate the expression
 def eval_operand(s):
     try:
         v = eval(s)
         py2_long = not PY3K and isinstance(v, long)
-        if isinstance(v, int) or isinstance(v, float) or py2_long:
+        if isinstance(v, (int, float)) or py2_long:
             return v
     except:
         pass
@@ -105,15 +100,12 @@ def eval_operand(s):
 
 # check if a number is a valid integer
 # raise an exception if not
-def check_int (data_type, num):
+def check_int(data_type, num):
     if data_type.startswith('int'):
         py2_long = not PY3K and isinstance(num, long)
         if not (isinstance(num, int) or py2_long):
             raise ValueError(_('%s is not an integer') % (num,))
-        if data_type == 'int':
-            width = 64
-        else:
-            width = int(data_type[len('int'):])
+        width = 64 if data_type == 'int' else int(data_type[len('int'):])
         if num > ((1<<width)-1) or num < -(1<<(width-1)):
             raise ValueError(_('%s is too bulky for %s') % (num, data_type))
     return
@@ -153,8 +145,7 @@ def value_compare(treemodel, iter1, iter2, user_data):
         val2 = string2
 
     if val1 >  val2: return 1
-    if val1 == val2: return 0
-    return -1
+    return 0 if val1 == val2 else -1
 
 # format number in base16 (callback for TreeView)
 def format16(col, cell, model, iter, hex_col):
@@ -202,20 +193,11 @@ def menu_append_item(menu, name, callback, data=None):
 # Usage is the same you'd do in py3, call `decode` on external raw data
 # and `encode` to work with the memory representation
 def decode(raw_bytes, errors='strict'):
-    if PY3K:
-        return raw_bytes.decode(errors=errors)
-    else:
-        return str(raw_bytes)
+    return raw_bytes.decode(errors=errors) if PY3K else str(raw_bytes)
 
 def encode(unicode_string, errors='strict'):
-    if PY3K:
-        return unicode_string.encode(errors=errors)
-    else:
-        return unicode_string
+    return unicode_string.encode(errors=errors) if PY3K else unicode_string
 
 # Convert codepoints to integers byte by byte
 def str2bytes(string):
-    if PY3K:
-        return bytes(string)
-    else:
-        return map(ord, string)
+    return bytes(string) if PY3K else map(ord, string)

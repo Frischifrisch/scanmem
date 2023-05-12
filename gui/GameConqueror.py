@@ -126,7 +126,7 @@ class GameConqueror():
         self.builder.add_from_file(os.path.join(WORK_DIR, 'GameConqueror.ui'))
 
         self.main_window = self.builder.get_object('MainWindow')
-        self.main_window.set_title('GameConqueror %s' % (VERSION,))
+        self.main_window.set_title(f'GameConqueror {VERSION}')
         self.about_dialog = self.builder.get_object('AboutDialog')
         # set version
         self.about_dialog.set_version(VERSION)
@@ -145,7 +145,7 @@ class GameConqueror():
         self.found_count_label = self.builder.get_object('FoundCount_Label')
         self.process_label = self.builder.get_object('Process_Label')
         self.value_input = self.builder.get_object('Value_Input')
-        
+
         self.scanoption_frame = self.builder.get_object('ScanOption_Frame')
         self.scanprogress_progressbar = self.builder.get_object('ScanProgress_ProgressBar')
         self.input_box = self.builder.get_object('Value_Input')
@@ -520,16 +520,14 @@ class GameConqueror():
         self.process_list_dialog.show()
         while True:
             res = self.process_list_dialog.run()
-            if res == Gtk.ResponseType.OK: # -5
-                (model, iter) = self.processlist_tv.get_selection().get_selected()
-                if iter is None:
-                    self.show_error(_('Please select a process'))
-                    continue
-                else:
-                    (pid, process) = model.get(iter, 0, 2)
-                    self.select_process(pid, process)
-                    break
-            else: # for None and Cancel
+            if res != Gtk.ResponseType.OK:
+                break
+            (model, iter) = self.processlist_tv.get_selection().get_selected()
+            if iter is None:
+                self.show_error(_('Please select a process'))
+            else:
+                (pid, process) = model.get(iter, 0, 2)
+                self.select_process(pid, process)
                 break
         self.process_list_dialog.hide()
         return True
@@ -596,7 +594,7 @@ class GameConqueror():
         (model, pathlist) = self.scanresult_tv.get_selection().get_selected_rows()
         match_id_list = ','.join(str(model.get_value(model.get_iter(path), 6)) for path in pathlist)
         self.command_lock.acquire()
-        self.backend.send_command('delete {}'.format(match_id_list))
+        self.backend.send_command(f'delete {match_id_list}')
         self.update_scan_result()
         self.command_lock.release()
 
@@ -677,12 +675,6 @@ class GameConqueror():
             locked = self.cheatlist_liststore[row][0]
             locked = not locked
             self.cheatlist_liststore[row][0] = locked
-        if locked:
-            #TODO: check value(valid number & not overflow), if failed, unlock it and do nothing
-            pass
-        else:
-            #TODO: update its value?
-            pass
         return True
 
     def cheatlist_toggle_lock_cb(self, cellrenderertoggle, row_str, data=None):
@@ -730,10 +722,7 @@ class GameConqueror():
             if not self.cheatlist_liststore[row][5]: #not valid
                 continue
             self.cheatlist_liststore[row][4] = new_text
-            if self.cheatlist_liststore[row][0]: # locked
-                # data_worker will handle this
-                pass
-            else:
+            if not self.cheatlist_liststore[row][0]:
                 (addr, typestr, value) = self.cheatlist_liststore[row][2:5]
                 self.write_value(addr, typestr, value)
         return True
@@ -781,10 +770,7 @@ class GameConqueror():
             return None
         try:
             bitn = int(bits[:-len('bit')])
-            if bitn not in {8,16,32,64}:
-                return None
-            else:
-                return bitn
+            return None if bitn not in {8,16,32,64} else bitn
         except:
             return None
         
@@ -833,7 +819,7 @@ class GameConqueror():
         selected_region = None
         if addr is not None:
             for m in self.maps:
-                if m['start_addr'] <= addr and addr < m['end_addr']:
+                if m['start_addr'] <= addr < m['end_addr']:
                     selected_region = m
                     break
             if selected_region:
@@ -863,7 +849,7 @@ class GameConqueror():
             return
         self.memoryeditor_hexview.payload = misc.str2bytes(data)
         self.memoryeditor_hexview.base_addr = start_addr
-        
+
         # set editable flag
         self.memoryeditor_hexview.editable = (selected_region['flags'][1] == 'w')
 
@@ -895,14 +881,10 @@ class GameConqueror():
         for proc in os.popen('ps -wweo pid=,user:16=,command= --sort=-pid').readlines():
             try:
                 (pid, user, pname) = [tok.strip() for tok in proc.split(None, 2)]
-            # process name may be empty, but not the name of the executable
-            except (ValueError):
+            except ValueError:
                 (pid, user) = [tok.strip() for tok in proc.split(None, 1)]
                 exelink = os.path.join("/proc", pid, "exe")
-                if os.path.exists(exelink):
-                    pname = os.path.realpath(exelink)
-                else:
-                    pname = ''
+                pname = os.path.realpath(exelink) if os.path.exists(exelink) else ''
             plist.append((int(pid), user, pname))
         return plist
 
@@ -937,21 +919,16 @@ class GameConqueror():
         lines = open('/proc/%d/maps' % (self.pid,)).readlines()
         self.maps = []
         for l in lines:
-            item = {}
             info = l.split(' ', 5)
             addr = info[0]
             idx = addr.index('-')
-            item['start_addr'] = int(addr[:idx],16)
-            item['end_addr'] = int(addr[idx+1:],16)
+            item = {'start_addr': int(addr[:idx], 16), 'end_addr': int(addr[idx+1:], 16)}
             item['size'] = item['end_addr'] - item['start_addr']
             item['flags'] = info[1]
             item['offset'] = info[2]
             item['dev'] = info[3]
             item['inode'] = int(info[4])
-            if len(info) < 6:
-                item['pathname'] = ''
-            else:
-                item['pathname'] = info[5].lstrip() # don't use strip
+            item['pathname'] = '' if len(info) < 6 else info[5].lstrip()
             self.maps.append(item)
 
     def reset_scan(self):
@@ -968,7 +945,7 @@ class GameConqueror():
         self.is_first_scan = True
         self.value_input.grab_focus()
 
-    def apply_scan_settings (self):
+    def apply_scan_settings(self):
         # scan data type
         assert(self.scan_data_type_combobox.get_active() >= 0)
         datatype = self.scan_data_type_combobox.get_active_text()
@@ -978,7 +955,7 @@ class GameConqueror():
         self.scanresult_liststore.set_sort_func(1, misc.value_compare, (1, isnumeric))
 
         self.command_lock.acquire()
-        self.backend.send_command('option scan_data_type %s' % (datatype,))
+        self.backend.send_command(f'option scan_data_type {datatype}')
         # search scope
         self.backend.send_command('option region_scan_level %d' %(1 + int(self.search_scope_scale.get_value()),))
         # TODO: ugly, reset to make region_scan_level taking effect
@@ -1155,7 +1132,7 @@ class GameConqueror():
             addr = '%x'%(addr,)
 
         self.command_lock.acquire()
-        self.backend.send_command('write %s %s %s'%(typestr, addr, value))
+        self.backend.send_command(f'write {typestr} {addr} {value}')
         self.command_lock.release()
 
     def exit(self, object, data=None):
@@ -1170,12 +1147,16 @@ class GameConqueror():
 
 if __name__ == '__main__':
     # Parse cmdline arguments
-    parser = argparse.ArgumentParser(prog='GameConqueror',
-                                     description=_("A GUI for scanmem, a game hacking tool"),
-                                     epilog=_('Report bugs to ' + PACKAGE_BUGREPORT + '.'))
+    parser = argparse.ArgumentParser(
+        prog='GameConqueror',
+        description=_("A GUI for scanmem, a game hacking tool"),
+        epilog=_(f'Report bugs to {PACKAGE_BUGREPORT}.'),
+    )
     parser.add_argument('-s', '--search', metavar='val', dest='search_value',
                         help=_('prefill the search box'))
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + VERSION)
+    parser.add_argument(
+        '-v', '--version', action='version', version=f'%(prog)s {VERSION}'
+    )
     parser.add_argument("pid", nargs='?', type=int, help=_("PID of the process"))
     args = parser.parse_args()
 
@@ -1185,8 +1166,8 @@ if __name__ == '__main__':
     gc_instance = GameConqueror()
 
     # Attach to given pid (if any)
-    if (args.pid is not None) :
-        process_name = os.popen('ps -p ' + str(args.pid) + ' -o command=').read().strip()
+    if (args.pid is not None):
+        process_name = os.popen(f'ps -p {str(args.pid)} -o command=').read().strip()
         if process_name == '':
             exelink = os.path.join("/proc", str(args.pid), "exe")
             if os.path.exists(exelink):

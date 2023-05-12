@@ -77,12 +77,9 @@ class OffsetText(BaseText):
             tot_lines += 1
 
         self.off_len = len('%x'%(base_addr+len(txt),))
-        output = []
-
-        for i in range(tot_lines):
-            output.append(("%0" + str(self.off_len) + "x") % (base_addr + i*bpl))
-
-        if output:
+        if output := [
+            f"%0{self.off_len}x" % (base_addr + i * bpl) for i in range(tot_lines)
+        ]:
             self.buffer.insert_with_tags(
                 self.buffer.get_end_iter(),
                 "\n".join(output),
@@ -134,17 +131,15 @@ class AsciiText(BaseText):
             if count > 0:
                 # try to move forward
                 if insert_iter.is_end() or \
-                   step_size != Gtk.MovementStep.VISUAL_POSITIONS:
+                       step_size != Gtk.MovementStep.VISUAL_POSITIONS:
                     # at end or line down: stay
                     insert_iter.backward_char()
-                else:
-                    # move forward
-                    if (insert_off+1) % (self._parent.bpl+1) == 0:
-                        insert_iter.forward_char()
+                elif (insert_off+1) % (self._parent.bpl+1) == 0:
+                    insert_iter.forward_char()
             elif count < 0:
                 # try to move backward
                 if not insert_iter.is_start() and \
-                   step_size == Gtk.MovementStep.VISUAL_POSITIONS:
+                       step_size == Gtk.MovementStep.VISUAL_POSITIONS:
                     # move backward (at start or line up: stay)
                     if (insert_off+1) % (self._parent.bpl+1) == 1:
                         insert_iter.backward_char()
@@ -382,17 +377,15 @@ class HexText(BaseText):
             if count > 0:
                 # try to move forward
                 if insert_iter.is_end() or \
-                   step_size != Gtk.MovementStep.VISUAL_POSITIONS:
+                       step_size != Gtk.MovementStep.VISUAL_POSITIONS:
                     # at end or line down: stay
                     insert_iter.backward_char()
-                else:
-                    # move forward
-                    if insert_off % 3 == 2:
-                        insert_iter.forward_char()
+                elif insert_off % 3 == 2:
+                    insert_iter.forward_char()
             elif count < 0:
                 # try to move backward
                 if not insert_iter.is_start() and \
-                   step_size == Gtk.MovementStep.VISUAL_POSITIONS:
+                       step_size == Gtk.MovementStep.VISUAL_POSITIONS:
                     # move backward (at start or line up: stay)
                     if insert_off % 3 == 0:
                         insert_iter.backward_char()
